@@ -23,7 +23,7 @@ if [ ! -f .clang-format-scope ]; then
 fi
 
 files_to_check="$(git diff-tree --name-only --no-commit-id -r HEAD \
-	"$(cat .clang-format-scope)" |grep "\.[ch]$")"
+	"$(cat .clang-format-scope)" | grep "\.[ch]$")"
 
 # nothing to do
 if [ -z "$files_to_check" ]; then
