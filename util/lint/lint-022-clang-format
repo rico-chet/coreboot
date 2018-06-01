@@ -31,5 +31,5 @@ if [ -z "$files_to_check" ]; then
 fi
 
 if [ "$(clang-format "$files_to_check" | wc -l)" -gt 0 ]; then
-	git show -- "$files_to_check" | clang-format-diff
+	git show --function-context -- "$files_to_check" | clang-format-diff
 fi
