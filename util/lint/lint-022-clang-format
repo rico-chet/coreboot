@@ -2,6 +2,7 @@
 # This file is part of the coreboot project.
 #
 # Copyright (C) 2018 Google Inc.
+# Copyright (C) 2018 Alex Thiessen <alex.thiessen.de+coreboot@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -15,21 +16,75 @@
 #
 # DESCR: Run clang-format on white-listed directories
 
+set -e # errexit
+set -n # nounset
+
+handle_error() {
+	error=$?
+	if [ $error -eq 0 ]; then
+		return
+	fi
+
+	if [ $# -ge 1 ]; then
+		echo "$1 failed,"
+	else
+		echo "failure,"
+	fi
+
+	# use `errno` tool by Lars Wirzenius found in
+	# debian's `moreutils` package
+	if command -v errno >/dev/null; then
+		errno $error >&2
+	else
+		echo "error code: $error" >&2
+	fi
+
+	return $error
+}
+
 LC_ALL=C export LC_ALL
+tmp_file_prefix=lint-clang-format
 
 # until we require this by default, we need a list of opted-in directories
 if [ ! -f .clang-format-scope ]; then
 	exit 0
 fi
 
-files_to_check="$(git diff-tree --name-only --no-commit-id -r HEAD \
-	"$(cat .clang-format-scope)" | grep "\.[ch]$")"
+files_to_check="$(mktemp ${tmp_file_prefix}-files-to-check-XXXXXXXX)" \
+	|| handle_error mktemp
+git diff-tree --name-only --no-commit-id -r HEAD "$(cat .clang-format-scope)" \
+	> "${files_to_check}" || handle_error git-diff-tree
+# delete all lines not ending in .c or .h
+sed -in '/\.[ch]$/!d' "${files_to_check}" || handle_error sed
 
-# nothing to do
-if [ -z "$files_to_check" ]; then
+# -s FILE: FILE exists and has a size greater than zero
+if [ ! -s "$files_to_check" ]; then
+	# nothing to do
+	rm "$files_to_check"
 	exit 0
 fi
 
-if [ "$(clang-format "$files_to_check" | wc -l)" -gt 0 ]; then
-	git show --function-context -- "$files_to_check" | clang-format-diff
+xml_replacements="$(mktemp ${tmp_file_prefix}-replacements-XXXXXXXX)" \
+	|| handle_error mktemp
+
+clang-format -output-replacements-xml "$files_to_check" > "$xml_replacements" \
+	|| handle_error clang-format
+
+# The XML contains a `<replacements>` list with a `<replacement>` entry
+# for each deviation found.
+if ! grep -q '<replacement[^s]' "$xml_replacements"; then
+	# changes are clean
+	rm "$files_to_check" "$xml_replacements"
+	exit 0
 fi
+
+diff="$(mktemp ${tmp_file_prefix}-diff-XXXXXXXX)" || handle_error mktemp
+# `function-context` enables `clang-format-diff` to handle structs too 
+git show --function-context -- "$files_to_check" > "$diff" \
+	|| handle_error git-show
+clang-format-diff < "$diff" || handle_error clang-format-diff
+
+rm "$files_to_check" "$xml_replacements" "$diff"
+
+# formatting errors found
+exit 1
