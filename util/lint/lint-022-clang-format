@@ -22,7 +22,7 @@ if [ ! -f .clang-format-scope ]; then
 	exit 0
 fi
 
-files_to_check="$(git log HEAD~..HEAD --format= --name-only \
+files_to_check="$(git diff-tree --name-only --no-commit-id -r HEAD \
 	"$(cat .clang-format-scope)" |grep "\.[ch]$")"
 
 # nothing to do
