@@ -26,9 +26,9 @@ handle_error() {
 	fi
 
 	if [ $# -ge 1 ]; then
-		echo "$1 failed,"
+		printf "%s failed, " "$1" >&2
 	else
-		echo "failure,"
+		printf "failure, " >&2
 	fi
 
 	# use `errno` tool by Lars Wirzenius found in
