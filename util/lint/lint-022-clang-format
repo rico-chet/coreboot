@@ -22,7 +22,8 @@ if [ ! -f .clang-format-scope ]; then
 	exit 0
 fi
 
-files_to_check=$(git log HEAD~..HEAD --format= --name-only $(cat .clang-format-scope) |grep "\.[ch]$")
+files_to_check=$(git log HEAD~..HEAD --format= --name-only \
+	$(cat .clang-format-scope) |grep "\.[ch]$")
 
 # nothing to do
 if [ -z "$files_to_check" ]; then
